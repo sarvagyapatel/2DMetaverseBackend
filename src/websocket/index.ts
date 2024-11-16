@@ -38,7 +38,7 @@ wss.on("connection", (socket: WebSocket, request: IncomingMessage) => {
   console.log(`Client connected with ID: ${clientId}`);
 
   socket.on('message', function message(data: any) {
-    // Parse the incoming data into an object
+
     let parsedMessage: Data;
     try {
       parsedMessage = JSON.parse(data);
@@ -47,13 +47,13 @@ wss.on("connection", (socket: WebSocket, request: IncomingMessage) => {
       return;
     }
 
-    // Send the message individually for each client with their specific owner
+   
     clients.forEach((clientSocket, client) => {
       if (clientSocket.readyState === WebSocket.OPEN) {
-        // Add the client-specific owner field
+    
         let individualMessage = { ...parsedMessage, owner: client };
         console.log(individualMessage)
-        // Send the modified message to this specific client
+       
         clientSocket.send(JSON.stringify(individualMessage));
       }
     });
