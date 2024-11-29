@@ -12,11 +12,11 @@ type Character = {
 
 type Data = {
   owner: string,
-  members: [Character]
+  members: Character[]
 }
 
 const app = express();
-const port = 8081;
+const port = 8080;
 
 const wss = new WebSocketServer({ noServer: true });
 const clients: Map<string, WebSocket> = new Map();
@@ -39,28 +39,45 @@ wss.on("connection", (socket: WebSocket, request: IncomingMessage) => {
 
   socket.on('message', function message(data: any) {
 
-    let parsedMessage: Data;
-    try {
-      parsedMessage = JSON.parse(data);
-    } catch (error) {
-      console.error("Error parsing message data:", error);
-      return;
-    }
+    const message = JSON.parse(data);
+    if (message.owner !== "sender" && message.owner !== "receiver") {
+      let parsedData: Data = message;
+      clients.forEach((clientSocket, client) => {
+        if (clientSocket.readyState === WebSocket.OPEN) {
 
-   
-    clients.forEach((clientSocket, client) => {
-      if (clientSocket.readyState === WebSocket.OPEN) {
-    
-        let individualMessage = { ...parsedMessage, owner: client };
-        console.log(individualMessage)
-       
-        clientSocket.send(JSON.stringify(individualMessage));
+          parsedData.members.forEach(element => {
+            if (element.clientId === client) {
+              element.status = true;
+            }
+          });
+
+          let individualMessage = { owner: client, members: parsedData.members };
+          clientSocket.send(JSON.stringify(individualMessage));
+        }
+      });
+    } else {
+      const targetSocket = clients.get(message.target);
+      if (message.owner === 'sender') {
+        if (message.type === 'createOffer') {
+          console.log(message.type)
+          targetSocket?.send(JSON.stringify({ type: 'createOffer', sdp: message.sdp }));
+        } else if (message.type === 'iceCandidate') {
+          targetSocket?.send(JSON.stringify({ type: 'iceCandidate', candidate: message.candidate }));
+        }
+      } else if (message.owner === 'receiver') {
+        if (message.type === 'createAnswer') {
+          console.log(message.type)
+          targetSocket?.send(JSON.stringify({ type: 'createAnswer', sdp: message.sdp }));
+        } else if (message.type === 'iceCandidate') {
+          targetSocket?.send(JSON.stringify({ type: 'iceCandidate', candidate: message.candidate }));
+        }
       }
-    });
+    }
   });
 
   socket.on("close", () => {
     console.log(`Client with ID ${clientId} disconnected`);
+
     clients.delete(clientId);
   });
 });
