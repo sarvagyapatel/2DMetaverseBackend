@@ -15,7 +15,7 @@ const generateAccessAndRefreshToken = async (user: any) => {
 
    const accessToken = jwt.sign(
       {
-         id: user._id,
+         id: user.id,
          email: user.email,
          username: user.username,
       },
@@ -110,37 +110,36 @@ const logout = async (req: any, res: any) => {
       .json("user loggedOut");
 }
 
-const updateUser = async (req:any, res:any)=>{
-   const {username, email, password, status, x_axis, y_axis} = req.body;
+const updateUser = async (req: any, res: any) => {
+   const { x_axis, y_axis } = req.body;
    const loggedUser = req.user;
 
    try {
-      const user = await client.user.findFirst({
-         where: {
-            username: username
-         }
-      });
-
-      if(!user) throw new Error("User not found")
-
-      if(user.id != loggedUser.id){
-         throw new Error("Something went wrong")
+      if (!loggedUser) {
+         return res.status(401).json({ error: "Unauthorized" });
       }
 
+      const user = await client.user.findUnique({
+         where: { id: loggedUser.id }, 
+      });
+
+      if (!user) {
+         return res.status(404).json({ error: "User not found" });
+      }
       const updatedUser = await client.user.update({
-         where: {
-            id: user.id
-         },
+         where: { id: user.id },
          data: {
-            username, email, status, x_axis, y_axis
-         }
-      })
+            x_axis,
+            y_axis,
+         },
+      });
 
       return res.status(200).json(updatedUser);
    } catch (error) {
-      return res.status(500).json(error)
+      console.error("Error updating user:", error);
+      return res.status(500).json({ error: "Something went wrong" });
    }
-}
+};
 
 const getCurrentUser = async (req: any, res: any) => {
    const user = req.user;

@@ -21,7 +21,6 @@ const createRoom = async (req: any, res: any) => {
                 },
             }
         })
-
         if (!room) {
             throw new Error("Something went wront while creating room");
         }
@@ -34,10 +33,10 @@ const createRoom = async (req: any, res: any) => {
                 roomId: room.id
             }
         })
-
         return res.status(200).json({ roomData: room, updatedUserData: updatedUser })
     } catch (error) {
-
+        console.log(error)
+        return res.status(500).json(error)
     }
 }
 
@@ -98,4 +97,4 @@ const joinRoom = async (req: any, res: any) => {
     }
 }
 
-export { createRoom, getAllRooms, joinRoom}
+export { createRoom, getAllRooms, joinRoom }

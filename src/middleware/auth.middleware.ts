@@ -15,6 +15,7 @@ const verifyJWT = async (req: any, res: any, next: any) => {
         if (!token) return res.status(401).json({ message: "Unauthorized Access" });
         if (!process.env.ACCESS_TOKEN_SECRET) return;
         const decodedtoken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET) as User;
+        console.log(decodedtoken)
         const user = await client.user.findFirst({
             where: {
                 id: decodedtoken.id

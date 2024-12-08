@@ -2,40 +2,63 @@ import { WebSocketServer, WebSocket } from "ws";
 import { IncomingMessage } from 'http'
 
 type Character = {
-  clientId: string,
+  username: string,
   status: boolean,
-  x: string,
-  y: string
+  x_axis: string,
+  y_axis: string,
+  roomId: number
 }
-
 
 const wss = new WebSocketServer({ noServer: true });
 const clients: Map<string, WebSocket> = new Map();
+const rooms: Map<number, WebSocket[]> = new Map();
 
 wss.on("connection", (socket: WebSocket, request: IncomingMessage) => {
   const url = new URL(request.url || "", `http://${request.headers.host}`);
-  const clientId = url.searchParams.get("clientId");
+  const username = url.searchParams.get("username");
+  const roomIdString = url.searchParams.get("roomId");
+  if (roomIdString === null) {
+    throw new Error("roomId is missing from the query string");
+  }
+  const roomId = parseInt(roomIdString);
 
-  if (!clientId) {
+  if (!username || !roomId) {
     socket.close(1008, "Client ID is required");
     return;
   }
 
-  clients.set(clientId, socket);
-  console.log(`Client connected with ID: ${clientId}`);
+  clients.set(username, socket);
+
+  if (!rooms.has(roomId)) {
+    rooms.set(roomId, []);
+  }
+  rooms.get(roomId)?.push(socket);
+
+  console.log(`Client connected with ID: ${username}`);
 
   socket.on('message', function message(data: any) {
 
     const message = JSON.parse(data);
-    if (message.owner !== "sender" && message.owner !== "receiver") {
+    if (message.type === "liveChat") {
+      const chat = message.message;
+      let roomClients = rooms.get(chat.roomId);
+      console.log(roomClients)
+      roomClients?.forEach((s) => {
+        if (s.readyState === WebSocket.OPEN) {
+          s.send(JSON.stringify({type:"liveChat" ,message:chat}));
+        }
+      })
+    } else if (message.owner !== "sender" && message.owner !== "receiver") {
       let hostData: Character = message;
-      clients.forEach((clientSocket, client) => {
-        if (clientSocket.readyState === WebSocket.OPEN) {
-          if(hostData.clientId!==client){
-            clientSocket.send(JSON.stringify(hostData));
+      let roomClients = rooms.get(hostData.roomId);
+      console.log(roomClients)
+      roomClients?.forEach((s) => {
+        if (s.readyState === WebSocket.OPEN) {
+          if (clients.get(hostData.username) !== s) {
+            s.send(JSON.stringify(hostData));
           }
         }
-      });
+      })
     } else {
       const targetSocket = clients.get(message.target);
       if (message.owner === 'sender') {
@@ -57,10 +80,20 @@ wss.on("connection", (socket: WebSocket, request: IncomingMessage) => {
   });
 
   socket.on("close", () => {
-    console.log(`Client with ID ${clientId} disconnected`);
+    console.log(`Client with ID ${username} disconnected`);
+    clients.delete(username);
 
-    clients.delete(clientId);
+    if (rooms.has(roomId)) {
+      const updatedSockets = rooms.get(roomId)?.filter((s) => s != socket);
+
+      if (updatedSockets && updatedSockets.length > 0) {
+        rooms.set(roomId, updatedSockets);
+      } else {
+        rooms.delete(roomId);
+      }
+    }
+
   });
 });
 
-export {wss};
+export { wss };
