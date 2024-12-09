@@ -55,6 +55,9 @@ const joinRoom = async (req: any, res: any) => {
     const { roomName, accessKey } = req.body;
     const user = req.user;
     try {
+        if(!user){
+            throw new Error("Unauthorized access");
+        }
         if (!roomName || !accessKey) {
             throw new Error("roomName or accessKey empty");
         }
